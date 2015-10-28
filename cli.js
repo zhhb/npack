@@ -1,3 +1,5 @@
+#!/usr/local/bin/node
+
 var fs = require("fs");
 var path = require('path');
 var execSync = require('child_process').execSync;
@@ -5,7 +7,7 @@ var fsUtils = require('nodejs-fs-utils');
 
 function getNodeModules(cwd) {
   var mods = {};
-  fs.readdirSync(path.resolve(cwd, 'node_module'))
+  fs.readdirSync(path.resolve(cwd, 'node_modules'))
     .filter(function(name) {
       return ['.bin'].indexOf(name) === -1;
     }).forEach(function(name) {
@@ -26,7 +28,7 @@ function template(webpack, cwd, package, entry, flags) {
   var buildPath = flags.output ? path.resolve(process.cwd(), flags.output, packagePrefix) : path.resolve(cwd, 'dist');
 
   var styles = function(loader) {
-    var cssLoaderArgs = '?module&localIdentName=' + packagePrefix + (flags.noDebug ? '-[hash:base64.10]' : '-[name]-[local]-[hash:base64.5]') + '!';
+    var cssLoaderArgs = '?module&localIdentName=' + packagePrefix + (flags.noDebug ? '-[hash:base64:10]' : '-[name]-[local]-[hash:base64:5]') + '!';
     return flags.isServer ? ('css/locals' + cssLoaderArgs + loader) :
       (flags.extractCss ? ExtractTextPlugin.extract('style', 'css' + cssLoaderArgs + loader) : ('style!css' + cssLoaderArgs + loader));
   };
@@ -115,7 +117,7 @@ function template(webpack, cwd, package, entry, flags) {
     },
     postcss: function() {
       return [
-        require('postcss-nexted')(),
+        require('postcss-nested')(),
         require('pixrem')(),
         require('postcss-color-function')(),
         require('postcss-color-rgba-fallback')(),
@@ -157,7 +159,7 @@ function template(webpack, cwd, package, entry, flags) {
     resolve: {
       root: cwd,
       alias: flags.alias || {},
-      externals: [''].concat([!flags.isServer && '.client.js' && '.js'].filter(isValid)),
+      extentions: [''].concat([!flags.isServer && '.client.js' && '.js'].filter(isValid)),
     },
     externals: externals,
     resolveLoader: {
@@ -171,7 +173,7 @@ var eh = function(err, stats) {
   process.stderr.write(stats.toString({
     colors: true
   }));
-  process.stderr.write('\nDONE at ' + new Date().toLocalString() + '.\n');
+  process.stderr.write('\nDONE at ' + new Date().toLocaleString() + '.\n');
 };
 
 function commandBuild(options) {
@@ -204,11 +206,11 @@ function commandBuild(options) {
         var wpConfig = template(webpack, cwd, package, entry, cflags);
 
         if (config.copy) {
-          fsUtils.mkdirs(webConfig.output.path, function(err) {
+          fsUtils.mkdirs(wpConfig.output.path, function(err) {
             if (err) throw err;
             Object.keys(config.copy).forEach(function(name) {
               var src = path.join(cwd, config.copy[name]);
-              var dist = path.join(webConfig.output.path, name);
+              var dist = path.join(wpConfig.output.path, name);
               fsUtils.copySync(src, dist, function(err) {
                 if (err) throw err;
               });
@@ -216,7 +218,7 @@ function commandBuild(options) {
           });
         }
 
-        var compiler = webpack(webConfig);
+        var compiler = webpack(wpConfig);
         if (options.watch) {
           compiler.watch({}, eh);
         } else {
@@ -225,7 +227,7 @@ function commandBuild(options) {
       });
     };
 
-    var prebuild = config.prebuild || {};
+    var prebuild = config.prebuild || [];
     var pi = 0;
     var next = function() {
       if (pi < prebuild.length) {
@@ -241,7 +243,7 @@ function commandBuild(options) {
   });
 }
 
-function commandReinstll(options) {
+function commandReinstall(options) {
   var cwd = process.cwd();
   var package = require(path.join(cwd, 'package.json'));
   var configFileName = paht.join(cwd, 'npack.config.js');
@@ -274,8 +276,8 @@ function commandReinstll(options) {
     }, []);
 
     if (args.length > 0) {
-      var cwd = ['npm', 'install', opt, '--save-exact'].concat(options._ || [], args).join('');
-      console.log(cwd);
+      var cmd = ['npm', 'install', opt, '--save-exact'].concat(options._ || [], args).join(' ');
+      console.log(cmd);
       execSync(cmd, execOptions);
     }
   };
@@ -290,23 +292,23 @@ var commands = {
     func: commandBuild,
     options: {
       boolean: ['no-debug', 'no-source-map', 'compress', 'minify', 'watch'],
-      String: ['rev', 'output'],
+      string: ['rev', 'output'],
       default: {
         watch: false,
-        rev: 'dev',
+        rev: 'dev'
       },
       alias: {
         'D': 'no-debug',
         'M': 'no-source-map',
         'm': 'minify',
         'z': 'compress',
-        'o': 'output',
-      },
+        'o': 'output'
+      }
     }
   },
   'reinstall': {
-    func: commandReinstll,
-  },
+    func: commandReinstall
+  }
 };
 
 var minimist = require('minimist');
@@ -314,17 +316,17 @@ var minimist = require('minimist');
 function main() {
   if (process.argv.length < 3) {
     console.log('You can use the following commands:');
-    Object.keys(commands).forEach(function(cwd) {
+    Object.keys(commands).forEach(function(cmd){
       console.log('  ' + cmd);
     });
   } else {
     var cmd = process.argv[2];
-    var cmdInfo = commands[cwd];
+    var cmdInfo = commands[cmd];
     if (!cmdInfo) {
       console.error('Unknown command:' + cmd);
       return;
     }
-    var options = cmdInfo.options ? minimist(process.argv.slice(3), cmdInfo.options) : (_.process.argv.slice(3));
+    var options = cmdInfo.options ? minimist(process.argv.slice(3), cmdInfo.options) : {_: process.argv.slice(3)};
     cmdInfo.func(options);
   }
 }
