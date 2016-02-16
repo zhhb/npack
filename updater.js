@@ -1,13 +1,14 @@
 'use strict'
-import path from 'path';
-import fs from 'fs';
+
+const path = require('path');
+const fs = require('fs');
 
 function loadConfig(cwd) {
   const fn = path.join(cwd, 'npack.config.js');
   try {
     return require(fn);
   } catch() {
-    return null;
+    return {};
   }
 }
 
@@ -56,6 +57,7 @@ exports.freeze = function freeze() {
 exports.unfreeze = function unfreeze(options) {
   const cwd = process.cwd();
   const config = loadConfig(cwd);
+  const pkg = loadPackage(cwd);
   const locked = {};
   (config.locked || []).forEach(name => {locked[name] = true;});
   const prefix = options.aggresive ? '>=' : '^';

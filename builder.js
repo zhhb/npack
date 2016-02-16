@@ -1,7 +1,7 @@
 const webpack = require('webpack');
 const fs = require('fs');
 const path = require('path');
-const fsUtils = require('node-fs-utils');
+const fsUtils = require('nodejs-fs-utils');
 const ExtractTextPlugin = require('extract-text-webpack-plugin');
 const AssetsPlugin = require('assets-webpack-plugin');
 function isValid(x) {
@@ -9,11 +9,11 @@ function isValid(x) {
 }
 function setDefault(){
   const obj = arguments[0];
-  const name = Array.prototype.slice.call(arguments, 1, -2);
+  const names = Array.prototype.slice.call(arguments, 1, -2);
   const lname = arguments[arguments.length -2];
   const f = arguments[arguments.length -1];
-  const node = name.reduce((p, name) => p[name] || );
-  return node[name] || (node[name] == (typeof f === 'function'?f():f));
+  const node = names.reduce((p, name) => p[name] || (p[name] = {}), obj);
+  return node[lname] || (node[lname] = (typeof f === 'function'?f():f));
 }
 
 function findFile(dir, file){
@@ -27,13 +27,13 @@ function findFile(dir, file){
       return null;
     }
   }
-  return findFile(path.resolve(dir, '.'),file);
+  return findFile(path.resolve(dir, '..'),file);
 }
 
 function wpConfig(cwd, dir, projectName, buildName, pkg, flags, options, shared){
   const pdir = path.resolve(cwd,dir);
   const runtimeTarget = flags.target || 'web';
-  const fname = flags.noHash ? `[name-${pkg.version}]`:`[name.chunkhash]`;
+  const fname = flags.noHash ? `[name]-${pkg.version}`:`[name].[chunkhash]`;
   const odir = path.resolve(cwd,options.output, runtimeTarget, projectName);
   const dev = !!options.dev;
   const cssLoaderArgs = 'modules&localIdentName='+(dev?`${projectName}-[name]-[local]-[hash:base64:5]`:`${projectName}-[hash:base64:10]`);
@@ -42,7 +42,7 @@ function wpConfig(cwd, dir, projectName, buildName, pkg, flags, options, shared)
       return `css/locals?${cssLoaderArgs}!${loader}`;
     }
     if (flags.extractCss) {
-      return ExtractTextPlugin.extract('style',`css?${cssLoaderAgrs}!${loader}`);
+      return ExtractTextPlugin.extract('style',`css?${cssLoaderArgs}!${loader}`);
     }
     return `style!css?${cssLoaderArgs}!${loader}`;
   }
@@ -51,22 +51,19 @@ function wpConfig(cwd, dir, projectName, buildName, pkg, flags, options, shared)
   if (runtimeTarget === 'node'){
     alias['source-map-support']=path.resolve(__dirname,'node_modules','source-map-support');
   }
+
+  const proxyModuleDirs = [];
   if (flags.proxyModules){
     flags.proxyModules.forEach(mod => {
       const mdir = findFile(pdir,`node_modules/${mod}/proxy_modules`);
       if(mdir){
-        try{files=fs.readdirSync(mdir);
-          files.forEach(fn => {if(fn.slice(-3) === '.js'){
-            alias[fn.slice(0,-3)]=path.resolve(mdir,fn);
-          }});
-          modvers[mod]=require(path.resolve(mdir,'..','package.json')).version;
-        }
-        catch(_){console.log(_);}
+        proxyModuleDirs.push(mdir);
       }
     });
   }
   if(flags.useModuleVersions){
-    useModuleVersions.forEach(mod=>{mp=findFile(pdir,`node_modules/${mod}/package.json`);
+    flags.useModuleVersions.forEach(mod=>{
+      const mp=findFile(pdir,`node_modules/${mod}/package.json`);
       if(mp){modvers[mod]=require(mp).version;}
     });
   }
@@ -74,36 +71,38 @@ function wpConfig(cwd, dir, projectName, buildName, pkg, flags, options, shared)
   const entry = (typeof flags.entry === 'string' || flags.entry instant of Array) ? {[buildName]:flags.entry}:flags.entry;
   const srcs = ['src','lib','test'].concat(flags.extraSourceDirs||[]).map(resolveReal().filter(isValid));
   const replacePlugins = (flags.replacePlugins||[]).map(item => new webpack.NormalModuleReplacementPlugin(item[0],item[1]));
+  const babel = runtimeTarget === 'web' ? 'es3ify!babel' : 'babel';
   
   return {
     context: pdir,
 	entry: entry,
-	devTool: 'source-map-support',
+	devtool: 'source-map',
 	target: runtimeTarget,
 	output: {
 	  library: flags.library,
 	  libraryTarget: flags.libraryTarget,
 	  path: odir,
 	  filename: fname+'.js',
-	  chunkfilename: '[chunkhash].chunk.js',
+	  chunkFilename: '[chunkhash].chunk.js',
 	},
 	externals: flags.externals,
-	modules: {
-	  preloaders: [
+	module: {
+	  preLoaders: [
 	   dev && {test: /\.js$/,loader:'eslint',include:srcs}
 	  ].filter(isValid),
 	  loaders: [
-	    {test: /\.es5\.js$/,loader: 'es3ify'},
-		{test: /\.jsx$/, loader:'es3ify.babel'},
-		{test: /\.js$/, loader: 'es3ify.babel', include: srcs},
-		{test: /\.json5?$/, loader: 'json5'},
-		{test: /\.est$/, loader: 'es3ify!babel!template-string'},
+	    runtimeTarget === 'web' && {test: /\.es5\.js$/,loader: 'es3ify'},
+		{test: /\.jsx$/, loader: babel},
+		{test: /\.js$/, loader: babel, include: srcs, exclude: /\.es5\.js$/},
+		{test: /\.json$/, loader: 'json'},
+		{test: /\.json5$/, loader: 'json5'},
+		{test: /\.est$/, loader: babel + '!template-string'},
 		{test: /\.less$/, loader: styles('postcss!less')},
 		{test: /\.css$/, loader: styles('postcss')},
 		{test: /\.(svg|jpe?g|png|gif)(\?.*)?$/, loader: 'url?limit=8192'},
-		{test: /\.(waff\d?|ttf|eot)(\?.*)?$/, loader: 'file'},
+		{test: /\.(woff\d?|ttf|eot)(\?.*)?$/, loader: 'file'},
 		{test: /\.csv$/, loader: 'dsv'}
-	  ],
+	  ].filter(isValid),
 	},
 	plugins: replacePlugins.concat([
 	  new webpack.DefinePlugin({
@@ -122,13 +121,13 @@ function wpConfig(cwd, dir, projectName, buildName, pkg, flags, options, shared)
 		},  
 	  }),
 	  runtimeTarget === 'web' && flags.extractCss && new ExtractTextPlugin(fname + '.css'),
-	  setDefault(shared, 'assetsPlugins', dir, () => {
+	  setDefault(shared, 'assetsPlugins', dir, () => 
 	    new AssetsPlugin({
 		  path: path.resolve(cwd, options.output, 'assets'),
 		  filename: projectName + '.json',
 		  prettyPrint: true,
 		})
-	  }),
+	  ),
 	]).filter(isValid),
 	resolve: {
 	  root: pdir,
@@ -139,15 +138,15 @@ function wpConfig(cwd, dir, projectName, buildName, pkg, flags, options, shared)
 		`.${runtimeTarget}.json`,
 		`.${runtimeTarget}.json5`,
 		'.js', '.jsx', '.json', 'json5'
-	  ]).filter(isValid),
-	  modulesDirectories: [
+	  ]),
+	  modulesDirectories: proxyModuleDirs.concat([
 	    runtimeTarget !== 'node' && `${runtimeTarget}_modules`,
 	    'node_modules', path.resolve(__dirname, 'builtin_modules')
-	  ].filter(isValid),
+	  ].filter(isValid)),
 	},
 	resolveLoader: {
 	  modulesDirectories: [
-	    path.resolve(__dirname, 'builtin_modules'),
+	    path.resolve(__dirname, 'builtin_loaders'),
 		path.resolve(__dirname, 'node_modules'),
 		'node_modules'
 	  ],
@@ -158,21 +157,22 @@ function wpConfig(cwd, dir, projectName, buildName, pkg, flags, options, shared)
 		require('babel-preset-react'),
 		require('babel-preset-stage-0')
 	  ],
-	  plugin: [
-	    require('babel-plugin-transform-es3-property-literals'),
-		require('babel-plugin-transform-es3-member-expression-literals')
-	  ],
+	  plugins: [
+	    runtimeTarget === 'web' && require('babel-plugin-transform-es3-property-literals'),
+		runtimeTarget === 'web' && require('babel-plugin-transform-es3-member-expression-literals')
+	  ].filter(isValid),
 	},
 	postcss: () => {
 	  return [
 	    require('postcss-nested')(),
 		require('pixrem')(),
-		require('autoprefixer')({browers: ['last 3 versions', 'not ie < 8']}),
+		require('autoprefixer')({browsers: ['last 3 versions', '>1%', 'ie >= 9', 'not ie <= 8']}),
 		require('postcss-flexibility')(),
 		require('postcss-discard-duplicates')()
 	  ];
 	},
 	eslint: {
+	  configFile: path.resolve(__dirname, '.eslintrc'),
 	  emitWarning: false,
 	  failOnError: false,
 	  failOnWarning: false,
@@ -193,11 +193,11 @@ const STATS_OPTIONS = {
   source: false,
   errorDetails: false,
   chunkOrigins: false,
-}
+};
 
 exports.build = function build(dirs, options) {
   if(!dirs || dirs.length === 0) {
-    dirs = ['.'],
+    dirs = ['.'];
   }
   const cwd = process.cwd();
   const shared = {};
@@ -214,12 +214,17 @@ exports.build = function build(dirs, options) {
   }
   dirs.forEach(dir => {
     const pkg = require(path.resolve(cwd, dir, 'package.json'));
-	const config = require(path.resolve(cwd. dir, 'npack.config.js'));
+    const configName = path.resolve(cwd. dir, 'npack.config.js');
+	const config = require(configName);
+	if (!config.build) {
+		console.error(`No build attribute on ${configName}, ignored.`);
+		return;
+	}
 	const projectName = config.name || pkg.name;
 	Object.keys(config.build).forEach(name => {
 	  const flags = config.build[name];
 	  const buildName = name === 'default' ? projectName: name;
-	  wpcl.push(wpConig(cwd,dir,projectName,buildName,pkg,flags,options,shared));
+	  wpcl.push(wpConfig(cwd,dir,projectName,buildName,pkg,flags,options,shared));
 	});
   });
   const finished = (err, stats) => {
