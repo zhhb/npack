@@ -1,3 +1,5 @@
+#!/usr/local/bin/node
+
 const prog = require('commander');
 const version = require('./package.json').version;
 prog.version(version);
