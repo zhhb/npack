@@ -1,0 +1,33 @@
+{
+  'extends': 'airbub',
+  ermaFeatures: {
+    jsx: true,
+  },
+  rules: {
+	  id-length: 0,
+	  indent : [1,2, {switchCase: 0}],
+	  no-console: 0,
+	  object-curly-spacing: 0,
+	  no-nested-ternary: 0,
+	  no-param-reassign: 0,
+	  nrefer-template: 0, 
+	  nrefre-arrow-callback:0,
+	  dot-notation: 0,
+	  max-len:0,
+	  'react/jsx-no-kind': 0,
+	  'react/jsx-boolean-value': 0,
+	  'react/jsx-closing-bracket-location': [2, 'after-props'],
+	  'react/no-multi-comp': 0
+  },
+  globals: {
+    Prel: false,
+	define: false,
+	NDEBUG: false,
+	MODULE_VERSIONS: false,
+	RUNTIMETARGET: false,
+	describe: false,
+	it:false,
+	afterEach: false,
+	__webpack_public_path__: true
+  }
+}
