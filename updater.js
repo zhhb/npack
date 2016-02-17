@@ -1,4 +1,4 @@
-'use strict'
+'use strict';
 
 const path = require('path');
 const fs = require('fs');
@@ -27,7 +27,7 @@ function transform(entries, f) {
   entries.forEach(entry => {
     if(entry) {
 	  Object.keys(entry).forEach(key => {
-	    const value => entry[key];
+	    const value = entry[key];
 		const n = f(key, value);
 		if (n && n !== value) {
 		  entry[key] = n;

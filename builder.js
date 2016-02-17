@@ -37,7 +37,7 @@ function wpConfig(cwd, dir, projectName, buildName, pkg, flags, options, shared)
   const odir = path.resolve(cwd,options.output, runtimeTarget, projectName);
   const dev = !!options.dev;
   const cssLoaderArgs = 'modules&localIdentName='+(dev?`${projectName}-[name]-[local]-[hash:base64:5]`:`${projectName}-[hash:base64:10]`);
-  const style = (loader) => {
+  const styles = (loader) => {
     if (runtimeTarget === 'node'){
       return `css/locals?${cssLoaderArgs}!${loader}`;
     }
@@ -68,8 +68,8 @@ function wpConfig(cwd, dir, projectName, buildName, pkg, flags, options, shared)
     });
   }
   const resolveReal = dir => {try{return fs.realPathSync(path.resolve(pdir,dir))}}catch(){return null;}
-  const entry = (typeof flags.entry === 'string' || flags.entry instant of Array) ? {[buildName]:flags.entry}:flags.entry;
-  const srcs = ['src','lib','test'].concat(flags.extraSourceDirs||[]).map(resolveReal().filter(isValid));
+  const entry = (typeof flags.entry === 'string' || flags.entry instanceof Array) ? {[buildName]:flags.entry}:flags.entry;
+  const srcs = ['src','lib','test'].concat(flags.extraSourceDirs||[]).map(resolveReal.filter(isValid));
   const replacePlugins = (flags.replacePlugins||[]).map(item => new webpack.NormalModuleReplacementPlugin(item[0],item[1]));
   const babel = runtimeTarget === 'web' ? 'es3ify!babel' : 'babel';
   
@@ -117,8 +117,8 @@ function wpConfig(cwd, dir, projectName, buildName, pkg, flags, options, shared)
 	  !dev && new webpack.optimize.UglifyJsPlugin({
 	    compressor: {
 		  warnings: false,
-		  comments: false,
-		},  
+		},
+		comments: false,
 	  }),
 	  runtimeTarget === 'web' && flags.extractCss && new ExtractTextPlugin(fname + '.css'),
 	  setDefault(shared, 'assetsPlugins', dir, () => 
@@ -202,8 +202,8 @@ exports.build = function build(dirs, options) {
   const cwd = process.cwd();
   const shared = {};
   const wpcl = [];
-  if (options.clean && opt.output) {
-    const output = path.resolve(cwd, opt.output);
+  if (options.clean && options.output) {
+    const output = path.resolve(cwd, options.output);
 	try {
 	  console.log('cleaning up', output);
 	  fsUtils.rmdirsSync(path.resolve(cwd, output));
