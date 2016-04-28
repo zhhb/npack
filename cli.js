@@ -1,4 +1,4 @@
-#!/usr/local/bin/node
+#!/Users/yzf/.nvm/versions/node/v4.0.0/bin/node
 
 const prog = require('commander');
 const version = require('./package.json').version;

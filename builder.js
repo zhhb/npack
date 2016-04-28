@@ -67,12 +67,20 @@ function wpConfig(cwd, dir, projectName, buildName, pkg, flags, options, shared)
       if(mp){modvers[mod]=require(mp).version;}
     });
   }
-  const resolveReal = dir => {try{return fs.realPathSync(path.resolve(pdir,dir))}}catch(){return null;}
+  const resolveReal = dir => {
+    try {
+      return fs.realpathSync(path.resolve(pdir,dir));
+    }
+    catch(e) {
+      console.log(e);
+      return null;
+    }
+  };
   const entry = (typeof flags.entry === 'string' || flags.entry instanceof Array) ? {[buildName]:flags.entry}:flags.entry;
-  const srcs = ['src','lib','test'].concat(flags.extraSourceDirs||[]).map(resolveReal.filter(isValid));
+  const srcs = ['src', 'lib'].concat(flags.extraSourceDirs||[]).map(resolveReal).filter(isValid);
   const replacePlugins = (flags.replacePlugins||[]).map(item => new webpack.NormalModuleReplacementPlugin(item[0],item[1]));
   const babel = runtimeTarget === 'web' ? 'es3ify!babel' : 'babel';
-  
+
   return {
     context: pdir,
 	entry: entry,
@@ -121,7 +129,7 @@ function wpConfig(cwd, dir, projectName, buildName, pkg, flags, options, shared)
 		comments: false,
 	  }),
 	  runtimeTarget === 'web' && flags.extractCss && new ExtractTextPlugin(fname + '.css'),
-	  setDefault(shared, 'assetsPlugins', dir, () => 
+	  setDefault(shared, 'assetsPlugins', dir, () =>
 	    new AssetsPlugin({
 		  path: path.resolve(cwd, options.output, 'assets'),
 		  filename: projectName + '.json',
@@ -214,18 +222,18 @@ exports.build = function build(dirs, options) {
   }
   dirs.forEach(dir => {
     const pkg = require(path.resolve(cwd, dir, 'package.json'));
-    const configName = path.resolve(cwd. dir, 'npack.config.js');
-	const config = require(configName);
-	if (!config.build) {
-		console.error(`No build attribute on ${configName}, ignored.`);
-		return;
-	}
-	const projectName = config.name || pkg.name;
-	Object.keys(config.build).forEach(name => {
-	  const flags = config.build[name];
-	  const buildName = name === 'default' ? projectName: name;
-	  wpcl.push(wpConfig(cwd,dir,projectName,buildName,pkg,flags,options,shared));
-	});
+    const configName = path.resolve(cwd, dir, 'npack.config.js');
+	  const config = require(configName);
+  	if (!config.build) {
+  		console.error(`No build attribute on ${configName}, ignored.`);
+  		return;
+  	}
+  	const projectName = config.name || pkg.name;
+  	Object.keys(config.build).forEach(name => {
+  	  const flags = config.build[name];
+  	  const buildName = name === 'default' ? projectName: name;
+  	  wpcl.push(wpConfig(cwd,dir,projectName,buildName,pkg,flags,options,shared));
+  	});
   });
   const finished = (err, stats) => {
     if (err) throw err;
